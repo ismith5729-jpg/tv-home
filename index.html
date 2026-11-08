@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Home</title>
+<!--
+  Custom home screen for a Hisense VIDAA TV.
+  Plain ES5 + simple CSS on purpose: the TV's built-in browser is an old Chromium.
+  Edit the CONFIG block below, re-upload, and the TV picks it up the next time the tile opens.
+-->
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #070b16; }
+  body { font-family: "Roboto", "Helvetica Neue", "Segoe UI", Arial, sans-serif; color: #f4f6fb; -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; }
+
+  /* ---------- background ---------- */
+  .bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  #bgBase { background: linear-gradient(160deg, #0a1024 0%, #0c1530 45%, #120c26 100%); }
+  .blob { position: absolute; width: 1300px; height: 1300px; border-radius: 50%; opacity: .55; }
+  #b1 { left: -350px; top: -500px; background: radial-gradient(circle, rgba(64,120,255,.55) 0%, rgba(64,120,255,0) 65%); }
+  #b2 { right: -420px; top: -200px; background: radial-gradient(circle, rgba(170,80,255,.45) 0%, rgba(170,80,255,0) 65%); }
+  #b3 { left: 380px; bottom: -760px; background: radial-gradient(circle, rgba(0,200,190,.35) 0%, rgba(0,200,190,0) 65%); }
+  #painting { background-size: cover; background-position: center; }
+  #wx { opacity: 0; transition: opacity 2s ease; }
+  #wx.overcast { opacity: 1; background: rgba(120,128,140,.30); }
+  #wx.rain { opacity: 1; background: repeating-linear-gradient(105deg, rgba(220,230,240,0) 0px, rgba(220,230,240,0) 22px, rgba(220,230,240,.16) 23px, rgba(220,230,240,0) 25px), rgba(70,82,100,.40); }
+  #wx.snow { opacity: 1; background: radial-gradient(circle at 20% 30%, rgba(255,255,255,.75) 0 2px, rgba(255,255,255,0) 3px) 0 0 / 90px 90px, radial-gradient(circle at 60% 70%, rgba(255,255,255,.6) 0 3px, rgba(255,255,255,0) 4px) 0 0 / 140px 140px, rgba(200,210,225,.30); }
+  #wx.night { opacity: 1; background: rgba(8,14,40,.58); }
+  #wx.night.rain, #wx.night.snow, #wx.night.overcast { background-color: rgba(8,14,40,.62); }
+  #clock, #weather, #greet { text-shadow: 0 2px 18px rgba(0,0,0,.55), 0 1px 3px rgba(0,0,0,.4); }
+  .photo { opacity: 0; transition: opacity 2.5s ease; background-size: cover; background-position: center; }
+  .photo.on { opacity: 1; }
+  #shade { background: linear-gradient(180deg, rgba(5,8,18,.35) 0%, rgba(5,8,18,.10) 30%, rgba(5,8,18,.30) 55%, rgba(5,8,18,.85) 100%); }
+
+  /* ---------- header ---------- */
+  #clock { position: absolute; left: 120px; top: 90px; }
+  #time { font-size: 168px; font-weight: 200; letter-spacing: -4px; line-height: 1; }
+  #ampm { font-size: 44px; font-weight: 300; margin-left: 14px; opacity: .7; letter-spacing: 0; }
+  #date { font-size: 38px; font-weight: 300; opacity: .82; margin-top: 18px; margin-left: 6px; }
+  #weather { position: absolute; right: 120px; top: 112px; text-align: right; }
+  #temp { font-size: 96px; font-weight: 200; line-height: 1; }
+  #wtext { font-size: 32px; font-weight: 300; opacity: .8; margin-top: 14px; }
+  #greet { position: absolute; left: 126px; top: 372px; font-size: 34px; font-weight: 400; opacity: .9; }
+
+  /* ---------- rows ---------- */
+  .row { position: absolute; left: 0; width: 100%; height: 300px; }
+  .rowTitle { position: absolute; left: 126px; top: 0; font-size: 26px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; opacity: .6; }
+  .track { position: absolute; left: 0; top: 52px; height: 260px; white-space: nowrap; transition: transform .2s ease; }
+  #row0 { top: 468px; }
+  #row1 { top: 780px; }
+
+  .tile { display: inline-block; vertical-align: top; position: relative; margin-left: 36px; border-radius: 26px; overflow: hidden;
+          transition: transform .15s ease; cursor: pointer; }
+  .tile:first-child { margin-left: 120px; }
+  .big { width: 330px; height: 200px; }
+  .small { width: 250px; height: 150px; border-radius: 22px; }
+  .tile .face { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .tile .gloss { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(160deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 45%); }
+  .tile .mono { position: absolute; left: 0; top: 0; width: 100%; text-align: center; font-weight: 700; color: rgba(255,255,255,.95); }
+  .big .mono { font-size: 50px; top: 62px; letter-spacing: -1px; }
+  .small .mono { font-size: 30px; top: 50%; padding: 0 18px; box-sizing: border-box; line-height: 1.15; white-space: normal; transform: translateY(-50%); letter-spacing: -.5px; }
+  .tile img.icon { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; background: #111; }
+  .tile .label { position: absolute; left: 0; bottom: 0; width: 100%; padding: 0 0 14px 20px; box-sizing: border-box; font-size: 24px; font-weight: 500;
+                 background: linear-gradient(0deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 100%); padding-top: 40px; opacity: 0; transition: opacity .2s ease; }
+  .tile.focus { transform: scale(1.1); box-shadow: 0 0 0 5px #ffffff; z-index: 5; }
+  .tile.focus .label { opacity: 1; }
+  .tool .face { background: rgba(255,255,255,.12); }
+  .tool .mono { font-weight: 500; }
+
+  #hint { position: absolute; left: 0; bottom: 22px; width: 100%; text-align: center; font-size: 22px; opacity: .45; }
+
+  /* ---------- toast + panel ---------- */
+  #toast { position: absolute; left: 50%; bottom: 110px; width: 1100px; margin-left: -550px; padding: 26px 36px; box-sizing: border-box; border-radius: 22px;
+           background: #141a30; box-shadow: 0 20px 60px rgba(0,0,0,.6); font-size: 28px; line-height: 1.4; text-align: center;
+           opacity: 0; transform: translateY(30px); transition: opacity .25s ease, transform .25s ease; z-index: 20; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #panel { position: absolute; left: 160px; top: 90px; width: 1600px; height: 900px; box-sizing: border-box; padding: 50px 60px; border-radius: 30px;
+           background: #0b1020; box-shadow: 0 0 0 2000px rgba(0,0,0,.55), 0 30px 90px rgba(0,0,0,.7); display: none; z-index: 30; overflow: hidden; }
+  #panel h2 { margin: 0 0 8px 0; font-size: 44px; font-weight: 400; }
+  #panel .sub { font-size: 24px; opacity: .6; margin-bottom: 30px; }
+  #panel pre { margin: 0; font-family: Menlo, Consolas, monospace; font-size: 21px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: #cfd6ea; }
+  #panelBody { height: 690px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="bg" id="bgBase"></div>
+  <div class="bg" id="painting"></div>
+  <div class="bg" id="wx"></div>
+  <div class="bg"><div class="blob" id="b1"></div><div class="blob" id="b2"></div><div class="blob" id="b3"></div></div>
+  <div class="bg photo" id="p0"></div>
+  <div class="bg photo" id="p1"></div>
+  <div class="bg" id="shade"></div>
+
+  <div id="clock"><div><span id="time">--:--</span><span id="ampm"></span></div><div id="date"></div></div>
+  <div id="weather"><div id="temp"></div><div id="wtext"></div></div>
+  <div id="greet"></div>
+
+  <div class="row" id="row0"><div class="rowTitle" id="t0"></div><div class="track" id="k0"></div></div>
+  <div class="row" id="row1"><div class="rowTitle" id="t1"></div><div class="track" id="k1"></div></div>
+
+  <div id="hint">Press Home on your remote for the regular TV menu</div>
+  <div id="toast"></div>
+  <div id="panel"><h2>TV check</h2><div class="sub">Take a photo of this screen and send it to Claude. Press Back to close.</div><div id="panelBody"><pre id="panelText"></pre></div></div>
+</div>
+
+<!-- Optional: the TV's own app list, generated by vidaa_home.py ("apps" command). Safe to leave out. -->
+<script>window.TV_APPS = [{"id": "284", "name": "TV Channels\u25b6", "url": "vidaa-plus", "icon": "icons/284.jpg", "web": false}, {"id": "1", "name": "Netflix", "url": "netflix", "icon": "icons/1.jpg", "web": false}, {"id": "2", "name": "Prime Video", "url": "amazon", "icon": "icons/2.jpg", "web": false}, {"id": "295", "name": "Disney+", "url": "https://cd-dmgz.bamgrid.com/bbd/hisense_tv/index.html", "icon": "icons/295.jpg", "web": true}, {"id": "336", "name": "Crave", "url": "https://crave.hisense.bellmedia.ca/", "icon": "icons/336.jpg", "web": true}, {"id": "351", "name": "Apple TV", "url": "https://atve.tv.apple.com/94819831-5404-4438-810e-afb648d6a826/tvw_1dc2aab0a313427dbc11818be8a18bd9/", "icon": "icons/351.jpg", "web": true}, {"id": "3", "name": "YouTube", "url": "pkgapp://tv.vidaa.app.youtube/apps/start_youtube.sh", "icon": "icons/3.jpg", "web": false}, {"id": "2256", "name": "Spotify : Music & Podcasts", "url": "https://api-partner.spotify.com/tvapp?platform=vidaa", "icon": "icons/2256.jpg", "web": true}, {"id": "2181", "name": "Kids", "url": "kidsLauncher", "icon": "icons/2181.jpg", "web": false}, {"id": "216", "name": "tubi", "url": "https://ott-hisense.tubitv.com", "icon": "icons/216.jpg", "web": true}, {"id": "2501", "name": "TSN", "url": "https://tsn-hisense-prd.tsn.d3-bell.com/", "icon": "icons/2501.jpg", "web": true}, {"id": "334", "name": "Paramount+", "url": "https://www.intl.paramountplus.com/smart-console-apps/vidaa/", "icon": "icons/334.jpg", "web": true}, {"id": "173", "name": "PlutoTV", "url": "https://app-hisense.pluto.tv/", "icon": "icons/173.jpg", "web": true}, {"id": "2643", "name": "Bell Fibe TV", "url": "https://tv-bell.kprod.cdn.f0ns3.ca/smart-tv/bell/vidaa/#/", "icon": "icons/2643.jpg", "web": true}, {"id": "2505", "name": "RDS", "url": "https://rds-hisense-prd.rds.d3-bell.com/", "icon": "icons/2505.jpg", "web": true}, {"id": "227", "name": "Haystack TV Local + World News", "url": "https://dn6q4f0q0kh23.cloudfront.net/receiver/hisense/haystackreceiver.html", "icon": "icons/227.jpg", "web": true}, {"id": "218", "name": "Fubo TV", "url": "https://hisense.fubo.tv/?ftv_campaign=hs_launchbar", "icon": "icons/218.jpg", "web": true}, {"id": "162", "name": "DAZN", "url": "https://tv.dazn.com/app/vidaa/", "icon": "icons/162.jpg", "web": true}, {"id": "293", "name": "NBA", "url": "https://cweb-ott.nba.com/", "icon": "icons/293.jpg", "web": true}, {"id": "244", "name": "UEFA.tv", "url": "https://dice-tv.imggaming.com/vidaa/dce.uefatv/index.html#/", "icon": "icons/244.jpg", "web": true}, {"id": "2584", "name": "XBOX", "url": "https://play.xbox.com/_external/init", "icon": "icons/2584.jpg", "web": true}, {"id": "355", "name": "UFC", "url": "https://dice-tv.imggaming.com/vidaa/dce.ufc/index.html", "icon": "icons/355.jpg", "web": true}, {"id": "376", "name": "Amazon Music", "url": "https://html5tv.music.amazon.dev/?deviceModel=A27F3L5WMHDOWD", "icon": "icons/376.jpg", "web": true}, {"id": "245", "name": "Triller TV.", "url": "https://ott-apps.fite.tv/hisense/index.html", "icon": "icons/245.jpg", "web": true}, {"id": "2586", "name": "V-Shop", "url": "https://vshop-app.vidaahub.com/", "icon": "icons/2586.jpg", "web": true}, {"id": "2372", "name": "Crunchyroll", "url": "https://www.crunchyroll.com/tetsuo/hisense-vidaa/", "icon": "icons/2372.jpg", "web": true}, {"id": "2562", "name": "V Home", "url": "https://tvmodules-vidaa.vidaahub.com/home-os/V1.0/index-home-os.html?canLaunchingVidaaTV=true", "icon": "icons/2562.jpg", "web": true}, {"id": "36", "name": "ToonGoggles", "url": "https://html5.toongoggles.com/", "icon": "icons/36.jpg", "web": true}, {"id": "42", "name": "Plex", "url": "https://app.plex.tv/tv-vidaa", "icon": "icons/42.jpg", "web": true}, {"id": "47", "name": "DEEZER", "url": "https://tv2.deezer.com/hisense", "icon": "icons/47.jpg", "web": true}, {"id": "304", "name": "iWant", "url": "https://livingroom.iwanttfc.com/vidaa/index.html", "icon": "icons/304.jpg", "web": true}, {"id": "309", "name": "Filmzie", "url": "https://tv-cdn.filmzie.com/production/vidaa/latest/index.html", "icon": "icons/309.jpg", "web": true}, {"id": "230", "name": "MUBI", "url": "https://tv-production.mubi.com/vidaa/4.0.0/", "icon": "icons/230.jpg", "web": true}, {"id": "79", "name": "Red Bull TV", "url": "https://vidaa-v2.redbull.tv", "icon": "icons/79.jpg", "web": true}, {"id": "2243", "name": "Art Gallery", "url": "https://tvmodules-vidaa.vidaahub.com/vidaa-art/V1.0/index-vidaa-art.html", "icon": "icons/2243.jpg", "web": true}, {"id": "164", "name": "APP STORE", "url": "vidaa-store", "icon": "icons/164.jpg", "web": false}, {"id": "15", "name": "AccuWeather", "url": "accuweather", "icon": "icons/15.jpg", "web": false}, {"id": "16", "name": "TV Browser", "url": "browser", "icon": "icons/16.jpg", "web": false}, {"id": "2368", "name": "Smart Life", "url": "AIOT", "icon": "icons/2368.jpg", "web": false}, {"id": "166", "name": "E-Manual", "url": "file:///APPS/emanual/Local_ebook/index.html", "icon": "icons/166.jpg", "web": false}, {"id": "184", "name": "On Demand", "url": "vidaa-free", "icon": "icons/184.jpg", "web": false}];</script>
+
+<script>
+/* ================== CONFIG — edit me ================== */
+var CONFIG = {
+  name: '',                       // e.g. 'Isaac' -> "Good evening, Isaac"
+  use24h: false,
+  weather: { on: true, lat: 42.9849, lon: -81.2453, place: 'London, ON', units: 'C' },
+
+  // Painted background (the river scene). Weather tints it: clouds, rain, snow and night.
+  painting: 'bg.jpg',
+
+  // Wallpaper photos (full https links to 1920x1080 JPGs). Leave empty for the animated colour background.
+  wallpapers: [],
+  minutesPerWallpaper: 3,
+
+  // Your main row. "match" finds the app in your TV's own app list (tv-apps.js).
+  // "url" is a backup web address used when the TV list doesn't have one.
+  favourites: [
+    { name: 'Netflix',     match: 'netflix',            colors: ['#e50914', '#5c0408'] },
+    { name: 'YouTube',     match: '^youtube$|youtube',  colors: ['#ff2a2a', '#7a0000'], url: 'https://www.youtube.com/tv' },
+    { name: 'Prime Video', match: 'prime video|amazon', colors: ['#1aa3e8', '#0b3a66'] },
+    { name: 'Disney+',     match: 'disney',             colors: ['#1d3fd8', '#0a1450'] },
+    { name: 'Crave',       match: 'crave',              colors: ['#2a6cf0', '#0b1f55'] },
+    { name: 'Apple TV',    match: 'apple tv',           colors: ['#3a3a40', '#0d0d10'], url: 'https://tv.apple.com' },
+    { name: 'Spotify',     match: 'spotify',            colors: ['#1ed760', '#0a4a22'] },
+    { name: 'Art Mode',    match: 'art gallery',        colors: ['#c8a46a', '#4a3418'] }
+  ],
+  favouritesTitle: 'Favourites',
+  moreTitle: 'More apps'
+};
+/* ====================================================== */
+
+(function () {
+  'use strict';
+  var TV_APPS = window.TV_APPS || [];
+  var $ = function (id) { return document.getElementById(id); };
+  var rows = [[], []];            // item objects per row
+  var tiles = [[], []];           // DOM nodes per row
+  var pos = { r: 0, c: 0 };
+  var panelOpen = false;
+  var isPreview = location.protocol === 'file:';   // only a local preview on a computer skips opening apps
+
+  /* ---------- storage (may be missing or throw on the TV) ---------- */
+  function store(k, v) { try { window.localStorage.setItem('vh_' + k, v); } catch (e) {} }
+  function recall(k) { try { return window.localStorage.getItem('vh_' + k); } catch (e) { return null; } }
+
+  /* ---------- scale 1920x1080 stage to the screen ---------- */
+  function fit() {
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    var st = $('stage');
+    st.style.transform = 'scale(' + s + ')';
+    st.style.left = Math.round((window.innerWidth - 1920 * s) / 2) + 'px';
+    st.style.top = Math.round((window.innerHeight - 1080 * s) / 2) + 'px';
+  }
+
+  /* ---------- clock ---------- */
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function tick() {
+    var d = new Date(), h = d.getHours(), m = d.getMinutes();
+    if (CONFIG.use24h) { $('time').textContent = pad(h) + ':' + pad(m); $('ampm').textContent = ''; }
+    else { $('time').textContent = ((h % 12) || 12) + ':' + pad(m); $('ampm').textContent = h < 12 ? 'AM' : 'PM'; }
+    $('date').textContent = DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate();
+    var part = h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    $('greet').textContent = part + (CONFIG.name ? ', ' + CONFIG.name : '');
+  }
+
+  /* ---------- weather (Open-Meteo, no key) ---------- */
+  var WMAP = { 0: 'Clear', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Cloudy', 45: 'Fog', 48: 'Fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Drizzle',
+    56: 'Freezing drizzle', 57: 'Freezing drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain', 67: 'Freezing rain',
+    71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow', 80: 'Showers', 81: 'Showers', 82: 'Heavy showers', 85: 'Snow showers', 86: 'Snow showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm' };
+  function weather() {
+    var w = CONFIG.weather; if (!w || !w.on) return;
+    try {
+      var x = new XMLHttpRequest();
+      var unit = w.units === 'F' ? '&temperature_unit=fahrenheit' : '';
+      x.open('GET', 'https://api.open-meteo.com/v1/forecast?latitude=' + w.lat + '&longitude=' + w.lon + '&current=temperature_2m,weather_code,is_day' + unit, true);
+      x.timeout = 10000;
+      x.onreadystatechange = function () {
+        if (x.readyState !== 4) return;
+        try {
+          var c = JSON.parse(x.responseText).current;
+          $('temp').textContent = Math.round(c.temperature_2m) + '°';
+          $('wtext').textContent = (WMAP[c.weather_code] || '') + '  ·  ' + w.place;
+          var k = c.weather_code, cls = [];
+          if (c.is_day === 0) cls.push('night');
+          if ((k >= 51 && k <= 67) || (k >= 80 && k <= 82) || k >= 95) cls.push('rain');
+          else if ((k >= 71 && k <= 77) || k === 85 || k === 86) cls.push('snow');
+          else if (k === 3 || k === 45 || k === 48) cls.push('overcast');
+          $('wx').className = 'bg ' + cls.join(' ');
+        } catch (e) {}
+      };
+      x.send();
+    } catch (e) {}
+  }
+
+  /* ---------- wallpapers ---------- */
+  var wpIndex = 0, wpLayer = 0;
+  function nextWallpaper() {
+    var list = CONFIG.wallpapers || []; if (!list.length) return;
+    var url = list[wpIndex % list.length]; wpIndex++;
+    var img = new Image();
+    img.onload = function () {
+      var on = $('p' + wpLayer), off = $('p' + (1 - wpLayer));
+      off.style.backgroundImage = 'url("' + url + '")';
+      off.className = 'bg photo on'; on.className = 'bg photo';
+      wpLayer = 1 - wpLayer;
+    };
+    img.src = url;
+  }
+
+  /* ---------- build the rows ---------- */
+  function findTV(pattern) {
+    if (!pattern) return null;
+    var re; try { re = new RegExp(pattern, 'i'); } catch (e) { return null; }
+    for (var i = 0; i < TV_APPS.length; i++) if (re.test(TV_APPS[i].name || '')) return TV_APPS[i];
+    return null;
+  }
+  function hashColor(name) {
+    var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+    return ['hsl(' + h + ',55%,42%)', 'hsl(' + ((h + 40) % 360) + ',60%,18%)'];
+  }
+
+  function makeTile(item, size) {
+    var t = document.createElement('div');
+    t.className = 'tile ' + size + (item.kind === 'tool' ? ' tool' : '');
+    var face = document.createElement('div'); face.className = 'face';
+    var c = item.colors || hashColor(item.name);
+    if (item.kind !== 'tool') face.style.background = 'linear-gradient(145deg, ' + c[0] + ' 0%, ' + c[1] + ' 100%)';
+    t.appendChild(face);
+    var mono = document.createElement('div'); mono.className = 'mono';
+    mono.textContent = item.name;
+    t.appendChild(mono);
+    if (item.icon) {
+      var img = document.createElement('img'); img.className = 'icon'; img.alt = '';
+      img.onerror = function () { if (img.parentNode) img.parentNode.removeChild(img); };
+      img.src = item.icon; t.appendChild(img);
+    }
+    var g = document.createElement('div'); g.className = 'gloss'; t.appendChild(g);
+    if (item.icon) { var l = document.createElement('div'); l.className = 'label'; l.textContent = item.name; t.appendChild(l); }
+    return t;
+  }
+
+  function build() {
+    var used = {};
+    var i, f, hit;
+    for (i = 0; i < CONFIG.favourites.length; i++) {
+      f = CONFIG.favourites[i];
+      hit = findTV(f.match);
+      if (hit) used[hit.id + '|' + hit.name] = 1;
+      rows[0].push({ name: f.name, colors: f.colors, icon: hit && hit.icon ? hit.icon : f.icon,
+        url: hit && hit.url ? hit.url : f.url, web: hit ? !!hit.web : !!f.url, tvApp: hit, fallback: f.url });
+    }
+    for (i = 0; i < TV_APPS.length; i++) {
+      var a = TV_APPS[i];
+      if (used[a.id + '|' + a.name]) continue;
+      if (/^home$/i.test(a.name || '')) continue;   // don't list this launcher inside itself
+      rows[1].push({ name: a.name, icon: a.icon, url: a.url, web: !!a.web, tvApp: a });
+    }
+    rows[1].push({ name: 'TV check', kind: 'tool', action: openPanel });
+    rows[1].push({ name: 'Reload', kind: 'tool', action: function () { location.reload(); } });
+
+    $('t0').textContent = CONFIG.favouritesTitle;
+    $('t1').textContent = TV_APPS.length ? CONFIG.moreTitle : 'Tools';
+    for (var r = 0; r < 2; r++) {
+      var track = $('k' + r);
+      for (i = 0; i < rows[r].length; i++) {
+        var node = makeTile(rows[r][i], r === 0 ? 'big' : 'small');
+        node.setAttribute('data-r', r); node.setAttribute('data-c', i);
+        node.onclick = onClick;
+        node.onmouseover = onHover;
+        track.appendChild(node); tiles[r].push(node);
+      }
+    }
+  }
+
+  /* ---------- focus + scrolling ---------- */
+  function focus(r, c) {
+    if (!tiles[r].length) return;
+    c = Math.max(0, Math.min(c, tiles[r].length - 1));
+    var old = tiles[pos.r][pos.c]; if (old) old.className = old.className.replace(' focus', '');
+    pos.r = r; pos.c = c;
+    var t = tiles[r][c]; t.className += ' focus';
+    // keep the focused tile on screen
+    var track = $('k' + r), left = t.offsetLeft, w = t.offsetWidth, shift = 0;
+    if (left + w > 1920 - 160) shift = (1920 - 160) - (left + w);
+    track.style.transform = 'translateX(' + Math.min(0, shift) + 'px)';
+    store('pos', r + ',' + c);
+  }
+  function onHover() { focus(+this.getAttribute('data-r'), +this.getAttribute('data-c')); }
+  function onClick() { onHover.call(this); activate(); }
+
+  /* ---------- opening apps ---------- */
+  var toastTimer = null;
+  function toast(msg, ms) {
+    var t = $('toast'); t.textContent = msg; t.className = 'show';
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.className = ''; }, ms || 5000);
+  }
+  function go(url) { try { window.location.assign(url); } catch (e) { window.location.href = url; } }
+
+  // Built-in (non-web) apps like Netflix can't always be opened from a web page.
+  // Try the TV's own helpers if this firmware exposes them; otherwise explain.
+  function tryNative(item) {
+    var a = item.tvApp || {};
+    var tried = false;
+    try {
+      if (typeof window.Hisense_launchAppViaName === 'function') { window.Hisense_launchAppViaName(a.name || item.name); tried = true; }
+      else if (typeof window.Hisense_StartApp === 'function' && a.url) { window.Hisense_StartApp(a.url); tried = true; }
+    } catch (e) { tried = false; }
+    var hidden = false;
+    var onHide = function () { hidden = true; };
+    document.addEventListener('visibilitychange', onHide);
+    setTimeout(function () {
+      document.removeEventListener('visibilitychange', onHide);
+      if (hidden) return;
+      if (item.fallback) { go(item.fallback); return; }
+      toast(item.name + ' can’t be opened from here yet' + (tried ? '' : ' on this TV') + '. Press Home and pick it from the TV’s app row.', 6500);
+    }, tried ? 1800 : 50);
+  }
+
+  function activate() {
+    var item = rows[pos.r][pos.c]; if (!item) return;
+    if (item.action) { item.action(); return; }
+    if (isPreview) { toast('Preview mode. On the TV this opens: ' + (item.url || item.name), 4000); return; }
+    if (item.url && /^https?:\/\//i.test(item.url)) { toast('Opening ' + item.name + '\u2026', 8000); go(item.url); return; }
+    tryNative(item);
+  }
+
+  /* ---------- TV check panel (read-only) ---------- */
+  function openPanel() {
+    var lines = [], names = [], k;
+    var prefix = /^(Hisense|HiUtils|HiBrowser|His_|Vidaa|VIDAA|omi_|TvInfo|VOS_|oipf|TVAPI)/;
+    try { for (k in window) if (prefix.test(k)) names.push(k); } catch (e) {}
+    try { var own = Object.getOwnPropertyNames(window); for (var i = 0; i < own.length; i++) if (prefix.test(own[i]) && names.indexOf(own[i]) < 0) names.push(own[i]); } catch (e2) {}
+    names.sort();
+    function safeGet(fn) { try { return typeof window[fn] === 'function' ? String(window[fn]()) : '-'; } catch (e) { return 'error'; } }
+    lines.push('Model:     ' + safeGet('Hisense_GetModelName'));
+    lines.push('Firmware:  ' + safeGet('Hisense_GetFirmWareVersion'));
+    lines.push('OS:        ' + safeGet('Hisense_GetOSVersion'));
+    lines.push('Browser:   ' + navigator.userAgent);
+    lines.push('Screen:    ' + window.innerWidth + 'x' + window.innerHeight);
+    lines.push('TV apps:   ' + TV_APPS.length + ' loaded from tv-apps.js');
+    lines.push('Can open built-in apps: ' + ((typeof window.Hisense_launchAppViaName === 'function' || typeof window.Hisense_StartApp === 'function') ? 'maybe (helper found)' : 'no helper found'));
+    lines.push('');
+    lines.push('TV functions this page can see (' + names.length + '):');
+    lines.push(names.join('  ') || '(none)');
+    $('panelText').textContent = lines.join('\n');
+    $('panel').style.display = 'block'; panelOpen = true;
+  }
+  function closePanel() { $('panel').style.display = 'none'; panelOpen = false; }
+
+  /* ---------- remote keys ---------- */
+  var BACK = { 8: 1, 27: 1, 461: 1, 10009: 1, 166: 1 };
+  document.addEventListener('keydown', function (e) {
+    var k = e.keyCode;
+    if (panelOpen) { if (BACK[k] || k === 13) { closePanel(); e.preventDefault(); } return; }
+    if (k === 37) { focus(pos.r, pos.c - 1); e.preventDefault(); }
+    else if (k === 39) { focus(pos.r, pos.c + 1); e.preventDefault(); }
+    else if (k === 38) { if (pos.r > 0) focus(0, Math.round(pos.c * 0.8)); e.preventDefault(); }
+    else if (k === 40) { if (pos.r < 1) focus(1, Math.round(pos.c * 1.25)); e.preventDefault(); }
+    else if (k === 13) { activate(); e.preventDefault(); }
+  }, false);
+
+  /* ---------- start ---------- */
+  window.addEventListener('resize', fit);
+  if (CONFIG.painting) $('painting').style.backgroundImage = 'url("' + CONFIG.painting + '")';
+  fit(); tick(); build(); weather();
+  setInterval(tick, 5000);
+  setInterval(weather, 20 * 60 * 1000);
+  if (CONFIG.wallpapers && CONFIG.wallpapers.length) { nextWallpaper(); setInterval(nextWallpaper, CONFIG.minutesPerWallpaper * 60000); }
+  var saved = (recall('pos') || '0,0').split(',');
+  focus(Math.min(+saved[0] || 0, 1), +saved[1] || 0);
+  if (!tiles[pos.r].length || !tiles[pos.r][pos.c]) focus(0, 0);
+}());
+</script>
+</body>
+</html>
